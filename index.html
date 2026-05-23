@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>PréMold v8.7 · Gestão de Produção</title>
+<title>PréMold v8.8 · Gestão de Produção</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -269,10 +269,11 @@ input, select, textarea { font-size: 16px !important; }
   <div class="hdr-i">
     <div class="logo">🏭</div>
     <div>
-      <div class="hdr-t">PréMold v8.7 · Gestão de Produção</div>
-      <div class="hdr-s">v8.7 · 46 produtos reais · CSV filtrado</div>
+      <div class="hdr-t">PréMold v8.8 · Gestão de Produção</div>
+      <div class="hdr-s">v8.8 · Nuvem Firebase · 48 produtos</div>
     </div>
     <div class="hdr-r">
+      <span id="fb-status" style="font-size:.62rem;padding:2px 7px;border-radius:10px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.65);cursor:default" title="Status da nuvem">📱 Local</span>
       <button class="btn-th" id="btn-th">🌙 Escuro</button>
     </div>
   </div>
@@ -658,6 +659,8 @@ input, select, textarea { font-size: 16px !important; }
           <label style="display:flex;gap:6px;margin:4px 0;font-size:.78rem;align-items:center"><input type="checkbox" id="ex-desp" checked> Despesas</label>
         </div>
         <button class="btn btn-p" style="width:100%" id="btn-export-bkp">⬇ Baixar backup (.json)</button>
+              <button class="btn" style="width:100%;margin-top:6px;background:var(--gl);border:1px solid var(--bd)" id="btn-sync-now" onclick="syncFirebaseAgora()" title="Forçar sincronização com a nuvem">🔄 Sincronizar com a nuvem agora</button>
+              <div id="fb-sync-info" style="font-size:.68rem;color:var(--tx2);text-align:center;margin-top:4px">Configure o Firebase para ativar a sincronização automática.</div>
       </div>
     </div>
     <div class="card">
@@ -873,15 +876,128 @@ input, select, textarea { font-size: 16px !important; }
 
 <div class="toast" id="toast"></div>
 
+
+<!-- ═══════════════════════════════════════════════════════
+     FIREBASE — Sincronização em nuvem
+     Configure sua conta em: https://console.firebase.google.com
+     ═══════════════════════════════════════════════════════ -->
+<script type="module">
+  import { initializeApp }       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, signInAnonymously, onAuthStateChanged }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import { getFirestore, doc, setDoc, onSnapshot, getDoc }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  // ── CONFIGURAÇÃO ── Substitua pelos valores do seu projeto Firebase ──────
+  const FIREBASE_CONFIG = {
+    apiKey:            "AIzaSyBgc0IKjT4lWAUGTLQOBCowk5lRvpeMgZ4",
+    authDomain:        "premold-rclipe.firebaseapp.com",
+    projectId:         "premold-rclipe",
+    storageBucket:     "premold-rclipe.firebasestorage.app",
+    messagingSenderId: "589392310369",
+    appId:             "1:589392310369:web:abab46cba13156ded3fa20"
+  };
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Se não configurado ainda, não inicializa (usa só localStorage)
+  if (FIREBASE_CONFIG.apiKey === 'COLE_AQUI_apiKey') {
+    window._firebaseOk = false;
+    console.info('[PréMold] Firebase não configurado — usando localStorage.');
+  } else {
+    window._firebaseOk = false; // começa false, vira true quando auth OK
+
+    const app  = initializeApp(FIREBASE_CONFIG);
+    const auth = getAuth(app);
+    const db   = getFirestore(app);
+
+    // ID do documento no Firestore — um por "empresa"
+    // Pode usar um ID fixo para compartilhar entre todos os dispositivos
+    const DOC_ID = 'empresa_principal';
+
+    // ── Funções expostas ao código principal ──────────────────────────────
+    window._fbSalvar = async (dadosDB) => {
+      try {
+        const uid = auth.currentUser?.uid;
+        if (!uid) return;
+        await setDoc(doc(db, 'premold', DOC_ID), {
+          dados: JSON.stringify(dadosDB),
+          uid,
+          atualizado: new Date().toISOString()
+        });
+      } catch(e) { console.warn('[Firebase] Erro ao salvar:', e.message); }
+    };
+
+    window._fbCarregar = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'premold', DOC_ID));
+        if (snap.exists()) return JSON.parse(snap.data().dados);
+      } catch(e) { console.warn('[Firebase] Erro ao carregar:', e.message); }
+      return null;
+    };
+
+    // Listener em tempo real: atualiza tela se outro dispositivo salvar
+    let _primeiraEscuta = true;
+    window._fbEscutar = () => {
+      onSnapshot(doc(db, 'premold', DOC_ID), snap => {
+        if (_primeiraEscuta) { _primeiraEscuta = false; return; } // ignora carga inicial
+        if (!snap.exists()) return;
+        try {
+          const remoto = JSON.parse(snap.data().dados);
+          // Só atualiza se vier de outro dispositivo (uid diferente)
+          if (snap.data().uid === auth.currentUser?.uid) return;
+          Object.keys(remoto).forEach(k => { if (Array.isArray(remoto[k])) window.DB[k] = remoto[k]; });
+          // Re-renderizar silenciosamente
+          if (window.renderDash)   { renderDash(); calcularConsumo(); }
+          if (window.renderHist)   renderHist();
+          if (window.renderEstoque) renderEstoque();
+          if (window.renderRel)    renderRel();
+          showT('🔄 Dados atualizados por outro dispositivo');
+        } catch(e) {}
+      });
+    };
+
+    // Login anônimo — nenhum cadastro necessário
+    signInAnonymously(auth).catch(e => console.warn('[Firebase] Auth erro:', e.message));
+
+    onAuthStateChanged(auth, async user => {
+      if (!user) return;
+      window._firebaseOk = true;
+
+      // Atualizar indicador de status na tela
+      const ind = document.getElementById('fb-status');
+      if (ind) { ind.textContent = '☁️ Nuvem'; ind.style.color = '#4CAF50'; }
+
+      // Carregar dados da nuvem (se existir, substitui localStorage)
+      const dadosNuvem = await window._fbCarregar();
+      if (dadosNuvem) {
+        Object.keys(dadosNuvem).forEach(k => { if (Array.isArray(dadosNuvem[k])) window.DB[k] = dadosNuvem[k]; });
+        localStorage.setItem(window._pmKey || 'pmv87', JSON.stringify(window.DB));
+        // Re-renderizar com dados da nuvem
+        if (window.renderDash) {
+          renderDash(); calcularConsumo(); renderProd(); renderCat();
+          renderIns(); renderEstoque(); renderDesp(); renderRel();
+          renderDados(); renderCats(); renderHist();
+        }
+        showT('☁️ Dados carregados da nuvem!');
+      }
+
+      // Ativar listener tempo real
+      window._fbEscutar();
+    });
+  }
+</script>
+
 <script>
 // ============================================================
 // BANCO DE DADOS
 // ============================================================
-const KEY = 'pmv87';
+const KEY = 'pmv88';
+window._pmKey = KEY;
 let DB = {
   insumos: [], produtos: [], receitas: [],
   producoes: [], despesas: [], categorias: [], movimentacoes: []
 };
+window.DB = DB; // exposto para o módulo Firebase
 
 // Estado global
 let _historicoFiltroData = null;
@@ -898,7 +1014,10 @@ let _tt;
 
 // ---- Persistência ----
 const salvar = () => {
+  // Salvar localmente sempre
   try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch(e) { console.warn('localStorage cheio'); }
+  // Salvar na nuvem se Firebase configurado
+  if (window._firebaseOk && window._fbSalvar) window._fbSalvar(DB);
 };
 const carregar = () => {
   try {
@@ -2449,6 +2568,16 @@ function renderDados() {
   ].map(([l, v]) => `<div style="padding:2px 0"><span style="color:var(--tx2)">${l}:</span> <strong>${v}</strong></div>`).join('');
 }
 
+function syncFirebaseAgora() {
+  if (!window._firebaseOk || !window._fbSalvar) {
+    showT('⚠️ Firebase não configurado. Consulte o guia de instalação.', true);
+    return;
+  }
+  window._fbSalvar(DB);
+  showT('☁️ Sincronizado com a nuvem!');
+  document.getElementById('fb-sync-info').textContent = 'Última sincronização: ' + new Date().toLocaleTimeString('pt-BR');
+}
+
 function exportBkp() {
   const bkp = { versao: '8.4', data: new Date().toISOString(), app: 'PréMold', categorias: DB.categorias, movimentacoes: DB.movimentacoes };
   if (document.getElementById('ex-ins').checked)  bkp.insumos = DB.insumos;
@@ -2566,7 +2695,7 @@ function toggleTheme() {
   const dark = h.dataset.theme === 'dark';
   h.dataset.theme = dark ? 'light' : 'dark';
   document.getElementById('btn-th').textContent = dark ? '🌙 Escuro' : '☀️ Claro';
-  try { localStorage.setItem('pmv87_th', h.dataset.theme); } catch(e) {}
+  try { localStorage.setItem('pmv88_th', h.dataset.theme); } catch(e) {}
 }
 
 // ============================================================
@@ -2667,7 +2796,7 @@ function bindEvents() {
 function init() {
   // Tema salvo
   try {
-    const t = localStorage.getItem('pmv87_th') || localStorage.getItem('pmv86_th') || localStorage.getItem('pmv85_th');
+    const t = localStorage.getItem('pmv88_th') || localStorage.getItem('pmv87_th') || localStorage.getItem('pmv86_th') || localStorage.getItem('pmv85_th');
     if (t) {
       document.documentElement.dataset.theme = t;
       document.getElementById('btn-th').textContent = t === 'dark' ? '☀️ Claro' : '🌙 Escuro';
