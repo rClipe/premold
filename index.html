@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>PréMold · Gestão de Produção</title>
+<title>PréMold v8.9 · Gestão de Produção</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -261,19 +261,158 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-s
 }
 input, select, textarea { font-size: 16px !important; }
 * { -webkit-tap-highlight-color: rgba(0,0,0,0); }
+
+/* ── LOGIN SCREEN ─────────────────────────────────────── */
+#login-screen {
+  position:fixed;inset:0;z-index:9999;
+  background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:0;
+  padding:20px;
+}
+.login-card {
+  background:var(--gl);
+  border:1px solid var(--bd);
+  border-radius:14px;
+  padding:36px 32px 28px;
+  width:100%;max-width:400px;
+  box-shadow:0 4px 24px rgba(0,0,0,.08);
+}
+.login-logo {
+  font-size:2.4rem;text-align:center;margin-bottom:6px;
+}
+.login-titulo {
+  text-align:center;font-size:1.3rem;font-weight:700;
+  color:var(--gd);margin-bottom:4px;
+}
+.login-sub {
+  text-align:center;font-size:.78rem;color:var(--tx2);margin-bottom:24px;
+}
+.login-field { margin-bottom:14px; }
+.login-field label {
+  display:block;font-size:.75rem;font-weight:600;
+  color:var(--tx2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em;
+}
+.login-field input {
+  width:100%;padding:10px 13px;border:1px solid var(--bd);
+  border-radius:8px;background:var(--bg);color:var(--tx);
+  font-size:.95rem;box-sizing:border-box;
+  transition:border-color .15s;
+}
+.login-field input:focus { outline:none;border-color:var(--gd); }
+.btn-login {
+  width:100%;padding:12px;border:none;border-radius:8px;
+  background:var(--gd);color:#fff;font-size:.95rem;font-weight:600;
+  cursor:pointer;margin-top:6px;transition:opacity .15s;
+}
+.btn-login:hover { opacity:.9; }
+.btn-login:disabled { opacity:.5;cursor:not-allowed; }
+.login-toggle {
+  text-align:center;margin-top:16px;font-size:.82rem;color:var(--tx2);
+}
+.login-toggle a {
+  color:var(--gd);cursor:pointer;text-decoration:underline;font-weight:600;
+}
+.login-erro {
+  background:#FEECEC;border:1px solid #f8c4c4;border-radius:7px;
+  padding:9px 13px;font-size:.82rem;color:#c0392b;margin-bottom:12px;
+  display:none;
+}
+.login-ok {
+  background:#EAF5EA;border:1px solid #b8ddb8;border-radius:7px;
+  padding:9px 13px;font-size:.82rem;color:#1e7e34;margin-bottom:12px;
+  display:none;
+}
+.login-divider {
+  display:flex;align-items:center;gap:10px;margin:14px 0;
+}
+.login-divider span { flex:1;height:1px;background:var(--bd); }
+.login-divider label { font-size:.73rem;color:var(--tx3);white-space:nowrap; }
+.login-spinner {
+  display:inline-block;width:16px;height:16px;
+  border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
+  border-radius:50%;animation:spin .6s linear infinite;margin-right:6px;
+  vertical-align:middle;
+}
+/* User info no header */
+#user-info {
+  font-size:.68rem;color:rgba(255,255,255,.75);
+  max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+#btn-logout {
+  font-size:.68rem;padding:3px 9px;border-radius:8px;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
+  color:rgba(255,255,255,.85);cursor:pointer;
+  transition:background .15s;white-space:nowrap;
+}
+#btn-logout:hover { background:rgba(255,255,255,.22); }
+
 </style>
 </head>
 <body>
+
+
+<!-- ═══ TELA DE LOGIN ═══════════════════════════════════════════════════ -->
+<div id="login-screen" style="display:none">
+  <div class="login-card">
+    <div class="login-logo">🏭</div>
+    <div class="login-titulo">PréMold</div>
+    <div class="login-sub" id="login-sub-txt">Gestão de produção de pré-moldados</div>
+
+    <div class="login-erro" id="login-erro"></div>
+    <div class="login-ok"   id="login-ok"></div>
+
+    <!-- campo nome (só no cadastro) -->
+    <div class="login-field" id="campo-nome" style="display:none">
+      <label>Nome da empresa</label>
+      <input type="text" id="login-empresa" placeholder="Ex: Pré-Moldados Silva Ltda" maxlength="60">
+    </div>
+
+    <div class="login-field">
+      <label>E-mail</label>
+      <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>Senha</label>
+      <input type="password" id="login-senha" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
+    </div>
+
+    <!-- campo confirmar senha (só no cadastro) -->
+    <div class="login-field" id="campo-confirmar" style="display:none">
+      <label>Confirmar senha</label>
+      <input type="password" id="login-confirmar" placeholder="Repita a senha">
+    </div>
+
+    <button class="btn-login" id="btn-login-acao" onclick="loginAcao()">Entrar</button>
+
+    <!-- recuperar senha -->
+    <div id="link-recuperar" style="text-align:center;margin-top:10px;font-size:.8rem">
+      <a onclick="mostrarRecuperar()" style="color:var(--gd);cursor:pointer;text-decoration:underline">Esqueci minha senha</a>
+    </div>
+
+    <div class="login-divider"><span></span><label>ou</label><span></span></div>
+
+    <div class="login-toggle" id="login-toggle-txt">
+      Não tem conta? <a onclick="alternarModo()">Criar conta grátis</a>
+    </div>
+  </div>
+  <div style="margin-top:14px;font-size:.72rem;color:var(--tx3);text-align:center">
+    14 dias grátis · Sem cartão de crédito · Seus dados seguros na nuvem
+  </div>
+</div>
+<!-- ═══ FIM TELA DE LOGIN ════════════════════════════════════════════════ -->
 
 <div class="hdr">
   <div class="hdr-i">
     <div class="logo">🏭</div>
     <div>
-      <div class="hdr-t">PréMold · Gestão de Produção</div>
-      <div class="hdr-s">1.0 · Nuvem Firebase</div>
+      <div class="hdr-t">PréMold v8.9 · Gestão de Produção</div>
+      <div class="hdr-s">v8.9 · Login · Dados por cliente</div>
     </div>
     <div class="hdr-r">
-      <span id="fb-status" style="font-size:.62rem;padding:2px 7px;border-radius:10px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.65);cursor:default" title="Status da nuvem">📱 Local</span>
+      <span id="fb-status" style="font-size:.62rem;padding:2px 7px;border-radius:10px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.65);cursor:default;display:none" title="Status da nuvem">☁️</span>
+      <span id="user-info" title="Conta logada"></span>
+      <button id="btn-logout" onclick="fazerLogout()" style="display:none">Sair</button>
       <button class="btn-th" id="btn-th">🌙 Escuro</button>
     </div>
   </div>
@@ -878,17 +1017,18 @@ input, select, textarea { font-size: 16px !important; }
 
 
 <!-- ═══════════════════════════════════════════════════════
-     FIREBASE — Sincronização em nuvem
-     Configure sua conta em: https://console.firebase.google.com
+     FIREBASE — Auth + Firestore (dados por cliente)
      ═══════════════════════════════════════════════════════ -->
 <script type="module">
-  import { initializeApp }       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-  import { getAuth, signInAnonymously, onAuthStateChanged }
+  import { initializeApp }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+           signOut, onAuthStateChanged, sendPasswordResetEmail, updateProfile }
     from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-  import { getFirestore, doc, setDoc, onSnapshot, getDoc }
+  import { getFirestore, doc, setDoc, onSnapshot, getDoc, serverTimestamp }
     from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
-  // ── CONFIGURAÇÃO ── Substitua pelos valores do seu projeto Firebase ──────
+  // ── CONFIGURAÇÃO ─────────────────────────────────────────────────────────
   const FIREBASE_CONFIG = {
     apiKey:            "AIzaSyBgc0IKjT4lWAUGTLQOBCowk5lRvpeMgZ4",
     authDomain:        "premold-rclipe.firebaseapp.com",
@@ -899,90 +1039,156 @@ input, select, textarea { font-size: 16px !important; }
   };
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Se não configurado ainda, não inicializa (usa só localStorage)
-  if (FIREBASE_CONFIG.apiKey === 'COLE_AQUI_apiKey') {
-    window._firebaseOk = false;
-    console.info('[PréMold] Firebase não configurado — usando localStorage.');
+  const NAO_CONFIGURADO = FIREBASE_CONFIG.apiKey === 'AIzaSyBgc0IKjT4lWAUGTLQOBCowk5lRvpeMgZ4';
+
+  if (NAO_CONFIGURADO) {
+    // Sem Firebase: modo local, sem tela de login
+    window._firebaseOk  = false;
+    window._modoLocal   = true;
+    console.info('[PréMold] Firebase não configurado — modo local.');
+    // Inicia direto
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.init) init();
+    });
   } else {
-    window._firebaseOk = false; // começa false, vira true quando auth OK
+    window._firebaseOk = false;
+    window._modoLocal  = false;
 
     const app  = initializeApp(FIREBASE_CONFIG);
     const auth = getAuth(app);
     const db   = getFirestore(app);
 
-    // ID do documento no Firestore — um por "empresa"
-    // Pode usar um ID fixo para compartilhar entre todos os dispositivos
-    const DOC_ID = 'empresa_principal';
-
-    // ── Funções expostas ao código principal ──────────────────────────────
+    // ── Salvar dados DO cliente logado (isolado por UID) ──────────────────
     window._fbSalvar = async (dadosDB) => {
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
       try {
-        const uid = auth.currentUser?.uid;
-        if (!uid) return;
-        await setDoc(doc(db, 'premold', DOC_ID), {
-          dados: JSON.stringify(dadosDB),
-          uid,
-          atualizado: new Date().toISOString()
+        await setDoc(doc(db, 'empresas', uid, 'dados', 'principal'), {
+          db: JSON.stringify(dadosDB),
+          atualizado: serverTimestamp()
         });
-      } catch(e) { console.warn('[Firebase] Erro ao salvar:', e.message); }
+      } catch(e) { console.warn('[FB] Salvar:', e.message); }
     };
 
+    // ── Carregar dados DO cliente logado ──────────────────────────────────
     window._fbCarregar = async () => {
+      const uid = auth.currentUser?.uid;
+      if (!uid) return null;
       try {
-        const snap = await getDoc(doc(db, 'premold', DOC_ID));
-        if (snap.exists()) return JSON.parse(snap.data().dados);
-      } catch(e) { console.warn('[Firebase] Erro ao carregar:', e.message); }
+        const snap = await getDoc(doc(db, 'empresas', uid, 'dados', 'principal'));
+        if (snap.exists()) return JSON.parse(snap.data().db);
+      } catch(e) { console.warn('[FB] Carregar:', e.message); }
       return null;
     };
 
-    // Listener em tempo real: atualiza tela se outro dispositivo salvar
-    let _primeiraEscuta = true;
+    // ── Listener tempo real (multi-device) ────────────────────────────────
+    let _unsub = null;
     window._fbEscutar = () => {
-      onSnapshot(doc(db, 'premold', DOC_ID), snap => {
-        if (_primeiraEscuta) { _primeiraEscuta = false; return; } // ignora carga inicial
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
+      let primeira = true;
+      _unsub = onSnapshot(doc(db, 'empresas', uid, 'dados', 'principal'), snap => {
+        if (primeira) { primeira = false; return; }
         if (!snap.exists()) return;
         try {
-          const remoto = JSON.parse(snap.data().dados);
-          // Só atualiza se vier de outro dispositivo (uid diferente)
-          if (snap.data().uid === auth.currentUser?.uid) return;
+          const remoto = JSON.parse(snap.data().db);
           Object.keys(remoto).forEach(k => { if (Array.isArray(remoto[k])) window.DB[k] = remoto[k]; });
-          // Re-renderizar silenciosamente
-          if (window.renderDash)   { renderDash(); calcularConsumo(); }
-          if (window.renderHist)   renderHist();
-          if (window.renderEstoque) renderEstoque();
-          if (window.renderRel)    renderRel();
-          showT('🔄 Dados atualizados por outro dispositivo');
+          if (window.renderDash) { renderDash(); calcularConsumo(); renderHist(); renderEstoque(); renderRel(); }
+          if (window.showT) showT('🔄 Dados sincronizados de outro dispositivo');
         } catch(e) {}
       });
     };
 
-    // Login anônimo — nenhum cadastro necessário
-    signInAnonymously(auth).catch(e => console.warn('[Firebase] Auth erro:', e.message));
+    // ── Parar listener ao fazer logout ────────────────────────────────────
+    window._fbPararEscuta = () => { if (_unsub) { _unsub(); _unsub = null; } };
 
+    // ── Criar conta ───────────────────────────────────────────────────────
+    window._fbCriarConta = async (email, senha, nomeEmpresa) => {
+      const cred = await createUserWithEmailAndPassword(auth, email, senha);
+      await updateProfile(cred.user, { displayName: nomeEmpresa });
+      // Criar documento inicial com seed
+      return cred.user;
+    };
+
+    // ── Login ─────────────────────────────────────────────────────────────
+    window._fbLogin = async (email, senha) => {
+      const cred = await signInWithEmailAndPassword(auth, email, senha);
+      return cred.user;
+    };
+
+    // ── Logout ────────────────────────────────────────────────────────────
+    window._fbLogout = async () => {
+      window._fbPararEscuta();
+      await signOut(auth);
+    };
+
+    // ── Recuperar senha ───────────────────────────────────────────────────
+    window._fbRecuperar = async (email) => {
+      await sendPasswordResetEmail(auth, email);
+    };
+
+    // ── Observer de autenticação ──────────────────────────────────────────
     onAuthStateChanged(auth, async user => {
-      if (!user) return;
-      window._firebaseOk = true;
+      if (user) {
+        // ── USUÁRIO LOGADO ────────────────────────────────────────────────
+        window._firebaseOk = true;
 
-      // Atualizar indicador de status na tela
-      const ind = document.getElementById('fb-status');
-      if (ind) { ind.textContent = '☁️ Nuvem'; ind.style.color = '#4CAF50'; }
+        // Atualizar header
+        const uInfo = document.getElementById('user-info');
+        const btnOut = document.getElementById('btn-logout');
+        const fbSt   = document.getElementById('fb-status');
+        if (uInfo)  uInfo.textContent  = user.displayName || user.email;
+        if (btnOut) btnOut.style.display = 'inline-block';
+        if (fbSt)   { fbSt.style.display='inline-block'; fbSt.textContent='☁️ Nuvem'; }
 
-      // Carregar dados da nuvem (se existir, substitui localStorage)
-      const dadosNuvem = await window._fbCarregar();
-      if (dadosNuvem) {
-        Object.keys(dadosNuvem).forEach(k => { if (Array.isArray(dadosNuvem[k])) window.DB[k] = dadosNuvem[k]; });
-        localStorage.setItem(window._pmKey || 'pmv87', JSON.stringify(window.DB));
-        // Re-renderizar com dados da nuvem
+        // Esconder tela de login, mostrar app
+        const ls = document.getElementById('login-screen');
+        const hdr= document.querySelector('.hdr');
+        const nav= document.querySelector('.nav');
+        const main=document.querySelector('.main');
+        if (ls)   ls.style.display = 'none';
+        if (hdr)  hdr.style.display = '';
+        if (nav)  nav.style.display = '';
+        if (main) main.style.display = '';
+
+        // Carregar dados da nuvem
+        const dadosNuvem = await window._fbCarregar();
+        if (dadosNuvem && window.DB) {
+          Object.keys(dadosNuvem).forEach(k => { if (Array.isArray(dadosNuvem[k])) window.DB[k] = dadosNuvem[k]; });
+          // Re-seed se vazio (conta nova)
+          if (!window.DB.insumos?.length && window.seed) window.seed();
+          if (window.salvar) window.salvar();
+        } else if (window.seed && window.DB && !window.DB.insumos?.length) {
+          window.seed();
+          if (window.salvar) window.salvar();
+          // Salvar seed inicial na nuvem
+          if (window._fbSalvar) window._fbSalvar(window.DB);
+        }
+
+        // Renderizar tudo
         if (window.renderDash) {
           renderDash(); calcularConsumo(); renderProd(); renderCat();
           renderIns(); renderEstoque(); renderDesp(); renderRel();
           renderDados(); renderCats(); renderHist();
         }
-        showT('☁️ Dados carregados da nuvem!');
-      }
 
-      // Ativar listener tempo real
-      window._fbEscutar();
+        // Ativar sync em tempo real
+        window._fbEscutar();
+
+      } else {
+        // ── DESLOGADO: mostrar tela de login ─────────────────────────────
+        window._firebaseOk = false;
+        const ls  = document.getElementById('login-screen');
+        const hdr = document.querySelector('.hdr');
+        const nav = document.querySelector('.nav');
+        const main= document.querySelector('.main');
+        if (ls)   ls.style.display = 'flex';
+        if (hdr)  hdr.style.display = 'none';
+        if (nav)  nav.style.display = 'none';
+        if (main) main.style.display = 'none';
+        const btnOut = document.getElementById('btn-logout');
+        if (btnOut) btnOut.style.display = 'none';
+      }
     });
   }
 </script>
@@ -991,8 +1197,8 @@ input, select, textarea { font-size: 16px !important; }
 // ============================================================
 // BANCO DE DADOS
 // ============================================================
-const KEY = 'pmv88';
-window._pmKey = KEY;
+const KEY = 'pmv89';
+window._pmKey = KEY; window._pmKeyG = KEY;
 let DB = {
   insumos: [], produtos: [], receitas: [],
   producoes: [], despesas: [], categorias: [], movimentacoes: []
@@ -2695,7 +2901,7 @@ function toggleTheme() {
   const dark = h.dataset.theme === 'dark';
   h.dataset.theme = dark ? 'light' : 'dark';
   document.getElementById('btn-th').textContent = dark ? '🌙 Escuro' : '☀️ Claro';
-  try { localStorage.setItem('pmv88_th', h.dataset.theme); } catch(e) {}
+  try { localStorage.setItem('pmv89_th', h.dataset.theme); } catch(e) {}
 }
 
 // ============================================================
@@ -2793,10 +2999,157 @@ function bindEvents() {
 // ============================================================
 // INICIALIZAÇÃO
 // ============================================================
+// ============================================================
+// AUTH — LOGIN / CADASTRO / LOGOUT
+// ============================================================
+let _loginModo = 'entrar'; // 'entrar' | 'cadastrar'
+
+function alternarModo() {
+  _loginModo = _loginModo === 'entrar' ? 'cadastrar' : 'entrar';
+  const isCad = _loginModo === 'cadastrar';
+  document.getElementById('campo-nome').style.display      = isCad ? '' : 'none';
+  document.getElementById('campo-confirmar').style.display = isCad ? '' : 'none';
+  document.getElementById('link-recuperar').style.display  = isCad ? 'none' : '';
+  document.getElementById('btn-login-acao').textContent    = isCad ? 'Criar conta' : 'Entrar';
+  document.getElementById('login-toggle-txt').innerHTML    = isCad
+    ? 'Já tem conta? <a onclick="alternarModo()">Fazer login</a>'
+    : 'Não tem conta? <a onclick="alternarModo()">Criar conta grátis</a>';
+  document.getElementById('login-sub-txt').textContent = isCad
+    ? '14 dias grátis, sem cartão de crédito'
+    : 'Gestão de produção de pré-moldados';
+  limparMensagens();
+}
+
+function mostrarRecuperar() {
+  const email = document.getElementById('login-email').value.trim();
+  if (!email) { mostrarErro('Digite seu e-mail primeiro.'); return; }
+  if (!window._fbRecuperar) { mostrarErro('Firebase não configurado.'); return; }
+  const btn = document.getElementById('btn-login-acao');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="login-spinner"></span> Enviando...';
+  window._fbRecuperar(email)
+    .then(() => {
+      mostrarOk('E-mail de recuperação enviado! Verifique sua caixa de entrada.');
+      btn.disabled = false;
+      btn.textContent = 'Entrar';
+    })
+    .catch(e => {
+      mostrarErro(traduzirErroFirebase(e.code));
+      btn.disabled = false;
+      btn.textContent = 'Entrar';
+    });
+}
+
+async function loginAcao() {
+  limparMensagens();
+  const email   = document.getElementById('login-email').value.trim();
+  const senha   = document.getElementById('login-senha').value;
+  const empresa = document.getElementById('login-empresa').value.trim();
+  const confirmar = document.getElementById('login-confirmar').value;
+  const btn     = document.getElementById('btn-login-acao');
+
+  // Validações
+  if (!email || !senha) { mostrarErro('Preencha e-mail e senha.'); return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { mostrarErro('E-mail inválido.'); return; }
+  if (senha.length < 6) { mostrarErro('Senha deve ter pelo menos 6 caracteres.'); return; }
+
+  if (_loginModo === 'cadastrar') {
+    if (!empresa) { mostrarErro('Informe o nome da empresa.'); return; }
+    if (senha !== confirmar) { mostrarErro('As senhas não coincidem.'); return; }
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="login-spinner"></span> ' + (_loginModo === 'cadastrar' ? 'Criando conta...' : 'Entrando...');
+
+  try {
+    if (_loginModo === 'cadastrar') {
+      await window._fbCriarConta(email, senha, empresa);
+      // onAuthStateChanged vai cuidar do resto
+    } else {
+      await window._fbLogin(email, senha);
+    }
+  } catch(e) {
+    mostrarErro(traduzirErroFirebase(e.code));
+    btn.disabled = false;
+    btn.textContent = _loginModo === 'cadastrar' ? 'Criar conta' : 'Entrar';
+  }
+}
+
+async function fazerLogout() {
+  if (!confirm('Tem certeza que quer sair?')) return;
+  // Limpar DB local
+  try { localStorage.removeItem(KEY); } catch(e) {}
+  if (window._fbLogout) await window._fbLogout();
+  // Reiniciar DB
+  window.DB.insumos=[]; window.DB.produtos=[]; window.DB.receitas=[];
+  window.DB.producoes=[]; window.DB.despesas=[]; window.DB.categorias=[]; window.DB.movimentacoes=[];
+}
+
+function traduzirErroFirebase(code) {
+  const msgs = {
+    'auth/invalid-email':            'E-mail inválido.',
+    'auth/user-not-found':           'Conta não encontrada. Verifique o e-mail.',
+    'auth/wrong-password':           'Senha incorreta.',
+    'auth/invalid-credential':       'E-mail ou senha incorretos.',
+    'auth/email-already-in-use':     'Este e-mail já está cadastrado. Faça login.',
+    'auth/weak-password':            'Senha muito fraca. Use pelo menos 6 caracteres.',
+    'auth/too-many-requests':        'Muitas tentativas. Aguarde alguns minutos.',
+    'auth/network-request-failed':   'Sem conexão com a internet.',
+    'auth/popup-closed-by-user':     'Login cancelado.',
+    'auth/operation-not-allowed':    'Método de login não habilitado no Firebase.',
+  };
+  return msgs[code] || 'Erro: ' + code;
+}
+
+function mostrarErro(msg) {
+  const el = document.getElementById('login-erro');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('login-ok').style.display = 'none';
+}
+function mostrarOk(msg) {
+  const el = document.getElementById('login-ok');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('login-erro').style.display = 'none';
+}
+function limparMensagens() {
+  document.getElementById('login-erro').style.display = 'none';
+  document.getElementById('login-ok').style.display   = 'none';
+}
+
+// Enter no campo senha faz login
+document.addEventListener('DOMContentLoaded', () => {
+  ['login-email','login-senha','login-confirmar'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') loginAcao(); });
+  });
+});
+
+
 function init() {
+  // Se Firebase configurado: esconder app até auth responder
+  if (!window._modoLocal) {
+    const hdr  = document.querySelector('.hdr');
+    const nav  = document.querySelector('.nav');
+    const main = document.querySelector('.main');
+    if (hdr)  hdr.style.display  = 'none';
+    if (nav)  nav.style.display  = 'none';
+    if (main) main.style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    // init() em modo Firebase: só carrega localStorage e para.
+    // O Firebase observer vai renderizar quando o user logar.
+    try {
+      const t = localStorage.getItem('pmv89_th');
+      if (t) {
+        document.documentElement.dataset.theme = t;
+        document.getElementById('btn-th').textContent = t === 'dark' ? '☀️ Claro' : '🌙 Escuro';
+      }
+    } catch(e) {}
+    bindEvents();
+    return; // Para aqui — Firebase cuida do resto
+  }
   // Tema salvo
   try {
-    const t = localStorage.getItem('pmv88_th') || localStorage.getItem('pmv87_th') || localStorage.getItem('pmv86_th') || localStorage.getItem('pmv85_th');
+    const t = localStorage.getItem('pmv89_th') || localStorage.getItem('pmv88_th') || localStorage.getItem('pmv87_th') || localStorage.getItem('pmv86_th') || localStorage.getItem('pmv85_th');
     if (t) {
       document.documentElement.dataset.theme = t;
       document.getElementById('btn-th').textContent = t === 'dark' ? '☀️ Claro' : '🌙 Escuro';
