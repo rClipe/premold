@@ -3505,28 +3505,75 @@ async function loginAcao() {
   catch(e) { mostrarErro(traduzirErroFirebase(e.code)); btn.disabled = false; btn.textContent = 'Entrar'; }
 }
 
-async function fazerLogout() {
+  async function fazerLogout() {
   if (!confirm('Tem certeza que quer sair?')) return;
+
+  // 1. Parar inatividade e escuta
   if (window._pararMonitorInatividade) window._pararMonitorInatividade();
   if (window._fbPararEscuta) window._fbPararEscuta();
-  try { sessionStorage.removeItem('pmv_func_session'); } catch(e) {}
+
+  // 2. Destruir TODAS as sessões (ADMIN e FUNCIONÁRIO)
+  try { 
+    sessionStorage.removeItem('pmv_func_session'); 
+    localStorage.removeItem('pmv_deslogado');
+  } catch(e) {}
+  
   window._modoFuncionario = false;
   window._funcionarioNome = null;
   window._uidEmpresa      = null;
   window._firebaseOk      = false;
   window._sessaoAtiva     = false;
+
+  // 3. Sinalizar que o logout foi intencional (evita loop)
+  try {
+    sessionStorage.setItem('pmv_deslogado', '1');
+    // Remove após 2 segundos
+    setTimeout(() => {
+      try { sessionStorage.removeItem('pmv_deslogado'); } catch(e) {}
+    }, 2000);
+  } catch(e) {}
+
+  // 4. Limpar dados em memória
+  if (window.DB) {
+    ['insumos','produtos','receitas','producoes','despesas','categorias','movimentacoes','usuarios','auditoria']
+      .forEach(k => { if (window.DB[k]) window.DB[k] = []; });
+  }
+
+  // 5. SignOut Firebase (se existir)
+  if (window._fbLogout) { 
+    try { 
+      await window._fbLogout(); 
+    } catch(e) {
+      console.warn('Erro no logout Firebase:', e);
+    }
+  }
+
+  // 6. Mostrar tela de login IMEDIATAMENTE
   document.getElementById('login-screen').style.display = 'flex';
   document.querySelector('.hdr').style.display  = 'none';
   document.querySelector('.nav').style.display  = 'none';
   document.querySelector('.main').style.display = 'none';
+  
   const btnOut = document.getElementById('btn-logout');
   if (btnOut) btnOut.style.display = 'none';
-  ['login-email','login-senha'].forEach(id => { const f = document.getElementById(id); if (f) f.value = ''; });
+
+  // 7. Limpar formulários
+  const emailInput = document.getElementById('login-email');
+  const senhaInput = document.getElementById('login-senha');
+  if (emailInput) emailInput.value = '';
+  if (senhaInput) senhaInput.value = '';
+
+  // 8. Limpar mensagens de erro
   if (window.limparMensagens) limparMensagens();
-  try { localStorage.removeItem(KEY); } catch(e) {}
-  if (window.DB) { ['insumos','produtos','receitas','producoes','despesas','categorias','movimentacoes','usuarios'].forEach(k => { window.DB[k] = []; }); }
-  if (window._fbLogout) { try { await window._fbLogout(); } catch(e) {} }
-  setTimeout(() => { const f = document.getElementById('login-email'); if (f) f.focus(); }, 150);
+  const funcErro = document.getElementById('func-erro');
+  if (funcErro) funcErro.style.display = 'none';
+
+  // 9. Focar no campo de e-mail
+  setTimeout(() => { 
+    if (emailInput) emailInput.focus(); 
+  }, 150);
+
+  showT('✅ Você saiu do sistema com sucesso');
 }
 
 function alternarFunc() {
