@@ -3545,77 +3545,145 @@ async function loginFuncionario() {
   const nome   = document.getElementById('func-nome').value.trim();
   const senha  = document.getElementById('func-senha').value;
   const erro   = document.getElementById('func-erro');
+
   erro.style.display = 'none';
-  if (!codigo || !nome || !senha) { erro.textContent = 'Preencha todos os campos.'; erro.style.display = 'block'; return; }
+  if (!codigo || !nome || !senha) {
+    erro.textContent = 'Preencha todos os campos.'; 
+    erro.style.display = 'block'; 
+    return;
+  }
+
   const btn = document.querySelector('#login-func-screen .btn-login');
   btn.disabled = true;
   btn.innerHTML = '<span class="login-spinner"></span> Verificando...';
+
   try {
-    if (!window._db) { erro.textContent = 'Firebase não disponível. Aguarde e tente novamente.'; erro.style.display='block'; btn.disabled=false; btn.textContent='Entrar'; return; }
-    const { collection, getDocs, getDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    if (!window._db) {
+      erro.textContent = 'Firebase não disponível. Aguarde e tente novamente.';
+      erro.style.display='block'; 
+      btn.disabled=false; 
+      btn.textContent='Entrar'; 
+      return;
+    }
+
+    const { collection, getDocs, getDoc, doc } =
+      await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
     const db2 = window._db;
-    try {
-      const { getAuth, signInAnonymously } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
-      const _auth = getAuth();
-      if (!_auth.currentUser) await signInAnonymously(_auth);
-    } catch(e) { console.warn('[Func] anon:', e.message); }
-    let dadosEmpresa = null;
-    let uidEmpresa   = null;
-    let codigoSnap;
-    try { codigoSnap = await getDoc(doc(db2, 'codigos', codigo)); } catch(permErr) {
-      if (permErr.code === 'permission-denied') { erro.textContent = 'Sem permissão. O administrador precisa atualizar as regras do sistema.'; }
-      else { erro.textContent = 'Erro ao conectar: ' + (permErr.message || 'tente novamente'); }
-      console.error('[Func] Erro em /codigos:', permErr.code, permErr.message);
-      erro.style.display='block'; btn.disabled=false; btn.textContent='Entrar'; return;
+
+    // 1. Buscar o código da empresa
+    const codigoSnap = await getDoc(doc(db2, 'codigos', codigo));
+    
+    if (!codigoSnap.exists()) {
+      erro.textContent = 'Código de empresa não encontrado. Verifique com o gerente.';
+      erro.style.display='block';
+      btn.disabled=false;
+      btn.textContent='Entrar';
+      return;
     }
-    const _codigoSnap = codigoSnap;
-    if (_codigoSnap.exists()) {
-      const codigoData = _codigoSnap.data();
-      uidEmpresa = codigoData.uid;
-      if (codigoData.usuarios && codigoData.usuarios.length > 0) {
-        const hash = await hashSenha(senha);
-        const usuarioCheck = codigoData.usuarios.find(u => u.nome.toLowerCase() === nome.toLowerCase() && u.senha === hash);
-        if (!usuarioCheck) { erro.textContent = 'Nome ou senha incorretos.'; erro.style.display='block'; btn.disabled=false; btn.textContent='Entrar'; return; }
-        try {
-          const dataSnap = await getDoc(doc(db2, 'empresas', uidEmpresa, 'dados', 'principal'));
-          if (dataSnap.exists()) { dadosEmpresa = JSON.parse(dataSnap.data().db); }
-        } catch(e) { console.warn('[Func] /empresas bloqueado, usando dados locais'); dadosEmpresa = { usuarios: codigoData.usuarios }; }
-      } else {
-        try {
-          const dataSnap = await getDoc(doc(db2, 'empresas', uidEmpresa, 'dados', 'principal'));
-          if (dataSnap.exists()) { dadosEmpresa = JSON.parse(dataSnap.data().db); }
-        } catch(e) { console.warn('[Func] /empresas:', e.message); }
-      }
+
+    const codigoData = codigoSnap.data();
+    const uidEmpresa = codigoData.uid;
+
+    if (!uidEmpresa) {
+      erro.textContent = 'Código inválido. Contate o suporte.';
+      erro.style.display='block';
+      btn.disabled=false;
+      btn.textContent='Entrar';
+      return;
     }
-    if (!dadosEmpresa) { erro.textContent = 'Código de empresa não encontrado.'; erro.style.display='block'; btn.disabled=false; btn.textContent='Entrar'; return; }
-    const hash = await hashSenha(senha);
-    const usuario = (dadosEmpresa?.usuarios||[]).find(u => u.nome.toLowerCase() === nome.toLowerCase() && u.senha === hash) || (dadosEmpresa && { nome, id: 0 });
-    if (!usuario) { erro.textContent = 'Nome ou senha incorretos.'; erro.style.display='block'; btn.disabled=false; btn.textContent='Entrar'; return; }
+
+    // 2. Buscar os dados COMPLETOS da empresa (onde estão os usuários)
+    const dadosSnap = await getDoc(doc(db2, 'empresas', uidEmpresa, 'dados', 'principal'));
+    
+    if (!dadosSnap.exists()) {
+      erro.textContent = 'Dados da empresa não encontrados.';
+      erro.style.display='block';
+      btn.disabled=false;
+      btn.textContent='Entrar';
+      return;
+    }
+
+    const dadosEmpresa = JSON.parse(dadosSnap.data().db);
+    
+    // 3. Verificar se o funcionário existe nos dados da empresa
+    const hash = hashSenha(senha);
+    const usuario = (dadosEmpresa.usuarios || []).find(u => 
+      u.nome.toLowerCase() === nome.toLowerCase() && u.senha === hash
+    );
+
+    if (!usuario) {
+      erro.textContent = 'Nome ou senha incorretos.';
+      erro.style.display='block';
+      btn.disabled=false;
+      btn.textContent='Entrar';
+      return;
+    }
+
+    // 4. Login bem-sucedido
     window._modoFuncionario = true;
     window._funcionarioNome = usuario.nome;
     window._uidEmpresa      = uidEmpresa;
-    try { sessionStorage.setItem('pmv_func_session', JSON.stringify({ nome: usuario.nome, uid: uidEmpresa, ts: Date.now() })); } catch(e) {}
-    marcarTimestampSessao();
-    Object.keys(dadosEmpresa).forEach(k => { if (Array.isArray(dadosEmpresa[k])) DB[k] = dadosEmpresa[k]; });
-    ['insumos','produtos','receitas','producoes','despesas','categorias','movimentacoes','usuarios'].forEach(k => { if (!Array.isArray(DB[k])) DB[k] = []; });
-    if (!DB.insumos?.length) seed();
-    salvar();
+    
+    // Salvar sessão
+    try {
+      sessionStorage.setItem('pmv_func_session', JSON.stringify({
+        nome: usuario.nome, uid: uidEmpresa, ts: Date.now()
+      }));
+    } catch(e) {}
+
+    // 5. Carregar os dados no DB global
+    Object.keys(dadosEmpresa).forEach(k => { 
+      if (Array.isArray(dadosEmpresa[k])) window.DB[k] = dadosEmpresa[k]; 
+    });
+    
+    ['insumos','produtos','receitas','producoes','despesas','categorias','movimentacoes','usuarios']
+      .forEach(k => { if (!Array.isArray(window.DB[k])) window.DB[k] = []; });
+    
+    if (!window.DB.insumos?.length) seed();
+
+    // 6. Esconder login, mostrar app
     document.getElementById('login-func-screen').style.display = 'none';
     document.querySelector('.hdr').style.display  = '';
     document.querySelector('.nav').style.display  = '';
     document.querySelector('.main').style.display = '';
+
+    // 7. Atualizar header
     const uInfo = document.getElementById('user-info');
     const btnOut = document.getElementById('btn-logout');
     if (uInfo)  uInfo.textContent   = '👷 ' + usuario.nome;
     if (btnOut) btnOut.style.display = 'inline-block';
+
+    // 8. Esconder aba Usuários para funcionário
     const nbUsr = document.getElementById('nb-usuarios');
     if (nbUsr) nbUsr.style.display = 'none';
-    renderDash(); calcularConsumo(); renderProd(); renderCat();
-    renderIns(); renderEstoque(); renderDesp(); renderRel();
-    renderDados(); renderCats(); renderHist();
+
+    // 9. Renderizar tudo
+    if (typeof renderDash === 'function') {
+      renderDash(); 
+      calcularConsumo(); 
+      renderProd(); 
+      renderCat();
+      renderIns(); 
+      renderEstoque(); 
+      renderDesp(); 
+      renderRel();
+      renderDados(); 
+      renderCats(); 
+      renderHist();
+    }
+
     if (window.iniciarMonitorInatividade) iniciarMonitorInatividade();
+
     showT('✅ Bem-vindo, ' + usuario.nome + '!');
-  } catch(e) { erro.textContent = 'Erro ao conectar: ' + e.message; erro.style.display='block'; btn.disabled=false; btn.textContent='Entrar'; }
+
+  } catch(e) {
+    console.error('Erro no login do funcionário:', e);
+    erro.textContent = 'Erro ao conectar: ' + e.message;
+    erro.style.display='block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
+  }
 }
 
 function traduzirErroFirebase(code) {
